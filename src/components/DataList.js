@@ -1,46 +1,14 @@
 import React, { useState } from 'react'
-import { gql, GraphQLClient } from 'graphql-request'
-import InfiniteScroller from './InfiniteScroller'
-
-const Loader = () => {
-  return 'loading...'
+import { gql, request } from 'graphql-request'
+import { InfiniteScroller } from '@sedgwickz/react-infinite-scroll'
+const Loader = (isLoading) => {
+  return <div>{isLoading ? 'Loading...' : ''}</div>
 }
 
-const Item = ({ edge }) => {
-  return (
-    <div style={{ margin: '40px' }}>
-      <div>cursor: {edge.node.id}</div>
-      {edge.node.quote}
-    </div>
-  )
+const HasMore = (hasNext) => {
+  return <div style={{ textAlign: 'center' }}>{hasNext ? '' : 'No More'}</div>
 }
 
-// const query = gql`
-//   query searchQuery($keyword: String!, $after: String) {
-//     rateLimit {
-//       remaining
-//     }
-//     search(query: $keyword, type: REPOSITORY, first: 10, after: $after) {
-//       pageInfo {
-//         hasNextPage
-//         endCursor
-//       }
-//       edges {
-//         cursor
-//         node {
-//           ... on Repository {
-//             id
-//             nameWithOwner
-//             url
-//             stargazers {
-//               totalCount
-//             }
-//           }
-//         }
-//       }
-//     }
-//   }
-// `
 const quoteQuery = gql`
   query getQuotes($first: Int, $after: String) {
     items(first: $first, after: $after) {
@@ -69,20 +37,13 @@ export default () => {
   const [isLoading, setIsLoading] = useState(false)
   const fetchData = async () => {
     if (data.pageInfo && !data.pageInfo.hasNext) return
-    //const endpoint = 'https://api.github.com/graphql'  // used for test github api v4
-    //const endpoint = 'https://magical-paint-hubcap.glitch.me/graphql' // product url
-    //const endpoint = 'http://localhost:5000/graphql' // dev url
     const endpoint =
       process.env.NODE_ENV === 'development'
         ? 'http://localhost:5000/graphql'
         : 'https://magical-paint-hubcap.glitch.me/graphql'
-    const client = new GraphQLClient(endpoint, {
-      //   headers: {
-      //     authorization: `Bearer your person token for test github graphql api`,
-      //   },
-    })
+
     setIsLoading(true)
-    const res = await client.request(quoteQuery, {
+    const res = await request(endpoint, quoteQuery, {
       first: 10,
       after: data.pageInfo.endCursor,
     })
@@ -105,21 +66,21 @@ export default () => {
       <div>totalCount: {data.totalCount}</div>
       <InfiniteScroller
         isLoading={isLoading}
-        Loader={Loader}
-        HasMore={() => (
-          <div style={{ textAlign: 'center' }}>
-            {data.pageInfo.hasNext ? '' : 'No More'}
-          </div>
-        )}
+        loader={Loader(isLoading)}
+        hasMore={HasMore(data.pageInfo.hasNext)}
         fetchData={fetchData}
-        items={
-          data &&
+      >
+        {data &&
           data.edges &&
           data.edges.map((edge) => {
-            return <Item key={edge.node.id} edge={edge} />
-          })
-        }
-      ></InfiniteScroller>
+            return (
+              <div key={edge.node.id} style={{ margin: '40px' }}>
+                <div>cursor: {edge.node.id}</div>
+                {edge.node.quote}
+              </div>
+            )
+          })}
+      </InfiniteScroller>
     </div>
   )
 }
